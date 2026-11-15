@@ -53,4 +53,50 @@ public sealed class IncidentEndpointTests(SecureLabApiFactory factory)
         Assert.DoesNotContain("innerHTML", script, StringComparison.Ordinal);
         Assert.Contains("textContent", script, StringComparison.Ordinal);
     }
+        [Fact]
+    public async Task GetSeveritySummary_WithoutStatus_ReturnsAllSeverityGroups()
+    {
+        var summary = await _client.GetFromJsonAsync<List<IncidentSeveritySummaryResponse>>(
+            "/api/incidents/severity-summary");
+
+        Assert.NotNull(summary);
+        Assert.Equal(3, summary.Count);
+        Assert.All(summary, item => Assert.Equal(1, item.Count));
+
+        Assert.Equal(
+            new[] { "High", "Low", "Medium" },
+            summary.Select(item => item.Severity).OrderBy(severity => severity));
+    }
+
+    [Fact]
+    public async Task GetSeveritySummary_WithTriagedStatus_ReturnsMediumGroup()
+    {
+        var summary = await _client.GetFromJsonAsync<List<IncidentSeveritySummaryResponse>>(
+            "/api/incidents/severity-summary?status=Triaged");
+
+        Assert.NotNull(summary);
+        var item = Assert.Single(summary);
+
+        Assert.Equal("Medium", item.Severity);
+        Assert.Equal(1, item.Count);
+    }
+
+    [Fact]
+    public async Task GetSeveritySummary_WithResolvedStatus_ReturnsEmptyArray()
+    {
+        var summary = await _client.GetFromJsonAsync<List<IncidentSeveritySummaryResponse>>(
+            "/api/incidents/severity-summary?status=Resolved");
+
+        Assert.NotNull(summary);
+        Assert.Empty(summary);
+    }
+
+    [Fact]
+    public async Task GetSeveritySummary_WithUnknownStatus_ReturnsBadRequest()
+    {
+        using var response = await _client.GetAsync(
+            "/api/incidents/severity-summary?status=Unknown");
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
 }

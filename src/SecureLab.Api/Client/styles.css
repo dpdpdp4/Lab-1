@@ -138,3 +138,33 @@ select {
     grid-template-columns: 1fr;
   }
 }
+
+.summary-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: 0.75rem;
+  list-style: none;
+  padding: 0;
+  margin: 1rem 0 0;
+}
+
+.summary-item {
+  padding: 1rem;
+  border: 1px solid #d8e0ec;
+  border-radius: 0.6rem;
+  background: #f5f8fc;
+}
+
+.summary-item strong {
+  display: block;
+  font-size: 1.4rem;
+  margin-top: 0.35rem;
+}
+
+.summary-item span {
+  color: #52627a;
+}
+
+.summary-error {
+  color: #b42318;
+}

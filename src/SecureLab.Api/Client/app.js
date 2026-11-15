@@ -2,6 +2,8 @@ const listElement = document.querySelector("#incident-list");
 const listStatusElement = document.querySelector("#list-status");
 const detailsElement = document.querySelector("#incident-details");
 const filterForm = document.querySelector("#filter-form");
+const summaryElement = document.querySelector("#severity-summary");
+const summaryStatusElement = document.querySelector("#summary-status");
 
 async function apiFetch(path, options = {}) {
   const response = await fetch(path, {
@@ -50,6 +52,29 @@ function renderIncidentList(incidents) {
   }
 }
 
+function renderSeveritySummary(summary) {
+  summaryElement.replaceChildren();
+
+  if (summary.length === 0) {
+    summaryStatusElement.textContent =
+      "За заданим фільтром статистики немає.";
+    return;
+  }
+
+  summaryStatusElement.textContent = "Статистика за рівнем критичності:";
+
+  for (const item of summary) {
+    const element = document.createElement("li");
+    element.className = "summary-item";
+
+    const severity = createTextElement("span", item.severity);
+    const count = createTextElement("strong", String(item.count));
+
+    element.append(severity, count);
+    summaryElement.append(element);
+  }
+}
+
 function renderIncidentDetails(incident) {
   const heading = createTextElement("h3", incident.title);
   const metadata = createTextElement(
@@ -92,6 +117,27 @@ async function loadIncidents() {
   }
 }
 
+async function loadSeveritySummary() {
+  summaryStatusElement.textContent = "Завантаження статистики…";
+  summaryStatusElement.className = "";
+  summaryElement.replaceChildren();
+
+  const status = new FormData(filterForm).get("status");
+  const query = status ? `?status=${encodeURIComponent(status)}` : "";
+
+  try {
+    const summary = await apiFetch(
+      `/api/incidents/severity-summary${query}`
+    );
+
+    renderSeveritySummary(summary);
+  } catch (error) {
+    summaryStatusElement.textContent =
+      "Не вдалося завантажити статистику.";
+    summaryStatusElement.className = "summary-error";
+  }
+}
+
 async function loadIncidentDetails(id) {
   detailsElement.className = "details-placeholder";
   detailsElement.textContent = "Завантаження…";
@@ -106,6 +152,8 @@ async function loadIncidentDetails(id) {
 filterForm.addEventListener("submit", (event) => {
   event.preventDefault();
   loadIncidents();
+  loadSeveritySummary();
 });
 
 loadIncidents();
+loadSeveritySummary();
