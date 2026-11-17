@@ -61,7 +61,9 @@ public sealed class IncidentEndpointTests(SecureLabApiFactory factory)
 
         Assert.NotNull(summary);
         Assert.Equal(3, summary.Count);
-        Assert.All(summary, item => Assert.Equal(1, item.Count));
+        Assert.Equal(1, summary.Single(item => item.Severity == "High").Count);
+        Assert.Equal(3, summary.Single(item => item.Severity == "Low").Count);
+        Assert.Equal(1, summary.Single(item => item.Severity == "Medium").Count);
 
         Assert.Equal(
             new[] { "High", "Low", "Medium" },
