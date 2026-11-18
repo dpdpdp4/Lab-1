@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using SecureLab.Api.Data;
 using SecureLab.Api.Data.Entities;
+using Microsoft.AspNetCore.Identity;
 
 namespace SecureLab.Api.Scaffolding;
 
@@ -59,9 +60,17 @@ var rows = await query
 
     app.MapPost("/api/incidents", async (
     CreateIncidentRequest request,
+    HttpContext context,
+    UserManager<ApplicationUser> users,
     SecureLabDbContext db,
     CancellationToken ct) =>
 {
+
+    var currentUser = await users.GetUserAsync(context.User);
+
+    if (currentUser is null)
+        return Results.Unauthorized();
+
     var errors = new Dictionary<string, string[]>();
 
     if (string.IsNullOrWhiteSpace(request.Title))
@@ -127,7 +136,7 @@ if (duplicateExists)
     var incident = new Incident
     {
         Id = Guid.NewGuid(),
-        OwnerUserId = DbSeeder.AliceId,
+        OwnerUserId = currentUser.Id,
         Title = title,
         Description = description,
         Severity = severity,
@@ -143,7 +152,7 @@ if (duplicateExists)
     return Results.Created(
     $"/api/incidents/{incident.Id}",
     new CreatedIncidentResponse(incident.Id, incident.Title));
-});
+}).RequireAuthorization();
 }
 
 }
