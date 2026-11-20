@@ -1,3 +1,4 @@
+
 using Microsoft.EntityFrameworkCore;
 using SecureLab.Api.Data;
 using SecureLab.Api.Data.Entities;
@@ -5,15 +6,27 @@ using SecureLab.Api.Presentation.Contracts;
 
 namespace SecureLab.Api.Application.Incidents;
 
-public sealed class IncidentQueries(SecureLabDbContext dbContext, ILogger<IncidentQueries> logger)
+public sealed class IncidentQueries(
+    SecureLabDbContext dbContext,
+    ILogger<IncidentQueries> logger)
 {
     public async Task<IReadOnlyList<IncidentListItemResponse>> GetListAsync(
         IncidentStatus? status,
+        Guid currentUserId,
+        bool isAnalyst,
         CancellationToken cancellationToken)
     {
-        logger.LogInformation("Loading incidents with status filter {Status}", status);
+        logger.LogInformation(
+            "Loading incidents with status filter {Status}",
+            status);
 
         var query = dbContext.Incidents.AsNoTracking();
+
+        if (!isAnalyst)
+        {
+            query = query.Where(incident => incident.OwnerUserId == currentUserId);
+        }
+
         if (status is not null)
         {
             query = query.Where(incident => incident.Status == status);
@@ -31,13 +44,24 @@ public sealed class IncidentQueries(SecureLabDbContext dbContext, ILogger<Incide
             .ToListAsync(cancellationToken);
     }
 
-    public Task<IncidentDetailsResponse?> GetDetailsAsync(Guid id, CancellationToken cancellationToken)
+    public Task<IncidentDetailsResponse?> GetDetailsAsync(
+        Guid id,
+        Guid currentUserId,
+        bool isAnalyst,
+        CancellationToken cancellationToken)
     {
         logger.LogInformation("Loading incident {IncidentId}", id);
 
-        return dbContext.Incidents
+        var query = dbContext.Incidents
             .AsNoTracking()
-            .Where(incident => incident.Id == id)
+            .Where(incident => incident.Id == id);
+
+        if (!isAnalyst)
+        {
+            query = query.Where(incident => incident.OwnerUserId == currentUserId);
+        }
+
+        return query
             .Select(incident => new IncidentDetailsResponse(
                 incident.Id,
                 incident.Title,
@@ -48,7 +72,7 @@ public sealed class IncidentQueries(SecureLabDbContext dbContext, ILogger<Incide
                 incident.CreatedAtUtc,
                 incident.Owner.DisplayName,
                 incident.Comments
-                    .Where(comment => !comment.IsInternal)
+                    .Where(comment => isAnalyst || !comment.IsInternal)
                     .OrderBy(comment => comment.CreatedAtUtc)
                     .Select(comment => new IncidentCommentResponse(
                         comment.Id,
@@ -58,36 +82,36 @@ public sealed class IncidentQueries(SecureLabDbContext dbContext, ILogger<Incide
                     .ToList()))
             .SingleOrDefaultAsync(cancellationToken);
     }
-public async Task<IReadOnlyList<IncidentSeveritySummaryResponse>> GetSeveritySummaryAsync(
-    IncidentStatus? status,
-    CancellationToken cancellationToken)
-{
-    logger.LogInformation(
-        "Loading incident severity summary with status filter {Status}",
-        status);
 
-    var query = dbContext.Incidents.AsNoTracking();
-
-    if (status is not null)
+    public async Task<IReadOnlyList<IncidentSeveritySummaryResponse>> GetSeveritySummaryAsync(
+        IncidentStatus? status,
+        CancellationToken cancellationToken)
     {
-        query = query.Where(incident => incident.Status == status);
-    }
+        logger.LogInformation(
+            "Loading incident severity summary with status filter {Status}",
+            status);
 
-    var groupedResults = await query
-        .GroupBy(incident => incident.Severity)
-        .Select(group => new
+        var query = dbContext.Incidents.AsNoTracking();
+
+        if (status is not null)
         {
-            Severity = group.Key,
-            Count = group.Count()
-        })
-        .OrderBy(item => item.Severity)
-        .ToListAsync(cancellationToken);
+            query = query.Where(incident => incident.Status == status);
+        }
 
-    return groupedResults
-        .Select(item => new IncidentSeveritySummaryResponse(
-            item.Severity.ToString(),
-            item.Count))
-        .ToList();
-}
+        var groupedResults = await query
+            .GroupBy(incident => incident.Severity)
+            .Select(group => new
+            {
+                Severity = group.Key,
+                Count = group.Count()
+            })
+            .OrderBy(item => item.Severity)
+            .ToListAsync(cancellationToken);
 
+        return groupedResults
+            .Select(item => new IncidentSeveritySummaryResponse(
+                item.Severity.ToString(),
+                item.Count))
+            .ToList();
+    }
 }

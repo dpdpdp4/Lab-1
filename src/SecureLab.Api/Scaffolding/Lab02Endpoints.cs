@@ -8,7 +8,7 @@ namespace SecureLab.Api.Scaffolding;
 // Навчальний старт ЛР 02. Запускати лише з локальними штучними даними.
 public static class Lab02Endpoints
 {
-    
+
 public static void MapLab02Endpoints(this WebApplication app)
 {
     app.MapGet("/api/incidents/search", async (
@@ -69,7 +69,14 @@ var rows = await query
     var currentUser = await users.GetUserAsync(context.User);
 
     if (currentUser is null)
-        return Results.Unauthorized();
+    return Results.Unauthorized();
+
+    var isReporter = await users.IsInRoleAsync(
+    currentUser,
+    DbSeeder.ReporterRole);
+
+    if (!isReporter)
+    return Results.Forbid();
 
     var errors = new Dictionary<string, string[]>();
 
